@@ -1,16 +1,9 @@
 import dotenvSafe from 'dotenv-safe';
-import { cleanEnv, num } from 'envalid';
+import { cleanEnv, num, str } from 'envalid';
 
-// Load environment variables with validation of example file
-dotenvSafe.config({
-  allowEmptyValues: false,
-  example: '.env.example',
+dotenvSafe.config({ example: '.env.example', allowEmptyValues: false });
+
+export const config = cleanEnv(process.env, {
+  API_TIMEOUT_MS: num({ default: 7000, desc: 'HTTP timeout in ms' }),
+  TELEGRAM_BOT_TOKEN: str({ desc: 'Telegram bot token from @BotFather' }),
 });
-
-export const env = cleanEnv(process.env, {
-  API_TIMEOUT_MS: num({ default: 7000 }),
-});
-
-export const config = {
-  API_TIMEOUT_MS: env.API_TIMEOUT_MS,
-};
