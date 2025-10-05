@@ -1,0 +1,24 @@
+{
+  "name": "capital-compass",
+  "version": "1.0.0",
+  "description": "Диалоговый ассистент на Node.js 20: принимает сообщения в Telegram и отвечает через Yandex GPT Chat Completions v1. Логи — pino. Деплой — Render (Docker + Procfile).",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
+    "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "8.57.0",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-plugin-import": "2.29.1",
+    "eslint-plugin-n": "16.6.2",
+    "eslint-plugin-prettier": "5.1.3",
+    "eslint-plugin-promise": "6.1.1",
+    "prettier": "3.3.3"
+  }
+}
