@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "description": "Диалоговый ассистент на Node.js 20: принимает сообщения в Telegram и отвечает через Yandex GPT Chat Completions v1. Логи — pino. Деплой — Render (Docker + Procfile).",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "smoke": "node scripts/smoke.mjs"
   },
   "keywords": [],
   "author": "",
@@ -22,5 +24,12 @@
     "prettier": "3.3.3"
   },
   "packageManager": "npm@10.2.3",
-  "engines": { "node": "20.10.0", "npm": "10.2.3" }
+  "engines": {
+    "node": "20.10.0",
+    "npm": "10.2.3"
+  },
+  "dependencies": {
+    "dotenv-safe": "9.1.0",
+    "envalid": "8.1.0"
+  }
 }
