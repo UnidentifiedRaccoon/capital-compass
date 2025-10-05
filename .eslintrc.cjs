@@ -10,15 +10,13 @@ module.exports = {
     "plugin:promise/recommended",
     // этот пресет отключит конфликтующие правила и включит ошибку,
     // если код не отформатирован по Prettier:
-    "plugin:prettier/recommended"
+    "plugin:prettier/recommended",
   ],
   settings: {
-    "import/resolver": { node: { extensions: [".js", ".mjs", ".cjs"] } }
+    "import/resolver": { node: { extensions: [".js", ".mjs", ".cjs"] } },
   },
   rules: {
     "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-    "n/no-unsupported-features/es-syntax": "off"
-  }
+    "n/no-unsupported-features/es-syntax": "off",
+  },
 };
-
-
