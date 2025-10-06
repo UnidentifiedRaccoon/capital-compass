@@ -2,6 +2,7 @@ import { config } from './config/env.js';
 import { createServer } from './server/fastify.js';
 import { webhookBot } from './bot/webhookBot.js';
 import { longPollingBot } from './bot/longPollingBot.js';
+import { logger } from './logger.js';
 
 if (config.BOT_MODE === 'webhook') {
   const bot = webhookBot();
@@ -10,29 +11,34 @@ if (config.BOT_MODE === 'webhook') {
   (async () => {
     try {
       await server.listen({ port: config.PORT, host: '0.0.0.0' });
-      console.log(`HTTP server listening on :${config.PORT}`);
+      logger.info({ port: config.PORT }, 'http:listening');
       if (config.PUBLIC_BASE_URL) {
-        console.log(`Webhook path: ${config.PUBLIC_BASE_URL}/tg/${config.WEBHOOK_SECRET}`);
+        logger.info(
+          { webhook: `${config.PUBLIC_BASE_URL}/tg/${config.WEBHOOK_SECRET}` },
+          'webhook:path'
+        );
       } else {
-        console.log('Set PUBLIC_BASE_URL to complete Telegram setWebhook.');
+        logger.warn('Set PUBLIC_BASE_URL to complete Telegram setWebhook.');
       }
     } catch (err) {
-      console.error('Server start error:', err?.message || err);
+      logger.fatal({ err }, 'http:start:error');
       throw err;
     }
   })();
 
   const shutdown = async (signal) => {
-    console.log(`\n${signal} received: shutting down...`);
+    logger.warn({ signal }, 'shutdown:start');
     try {
       await server.close();
+      logger.info('shutdown:done');
     } catch (e) {
-      console.error('Error during shutdown:', e?.message || e);
+      logger.fatal({ err: e }, 'shutdown:error');
     }
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 } else {
   // старый режим: long polling (локальная разработка)
+  logger.info('mode:polling');
   longPollingBot();
 }
