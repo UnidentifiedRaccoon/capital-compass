@@ -27,6 +27,23 @@ jobs:
       - name: Prettier check
         run: npm run format:check
 
+      # 👇 создаём .env и заполняем ВСЕ ключи из .env.example
+      - name: Prepare .env for smokes
+        run: |
+          cat > .env <<'EOF'
+          API_TIMEOUT_MS=7000
+          TELEGRAM_BOT_TOKEN=dummy
+          YC_API_KEY=dummy
+          YC_FOLDER_ID=dummy
+          YC_GPT_MODEL=yandexgpt/latest
+          YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
+          BOT_MODE=webhook
+          PORT=8080
+          WEBHOOK_SECRET=replace_me
+          PUBLIC_BASE_URL=
+          LOG_LEVEL=warn
+          EOF
+
       - name: Smoke HTTP (GitHub API)
         run: npm run smoke:http
 
@@ -35,19 +52,26 @@ jobs:
           BOT_MODE: webhook
           PORT: 8080
           WEBHOOK_SECRET: replace_me
+          LOG_LEVEL: warn
           TELEGRAM_BOT_TOKEN: dummy
           YC_API_KEY: dummy
           YC_FOLDER_ID: dummy
         run: |
           node src/index.js & echo $! > server.pid
-          sleep 2
+
+      - name: Wait for health
+        run: |
+          for i in {1..30}; do
+            curl -fsS http://localhost:8080/health && exit 0
+            sleep 1
+          done
+          echo "Server did not become healthy in time" >&2
+          exit 1
 
       - name: Smoke webhook (dry-run)
-        env:
-          PORT: 8080
-          WEBHOOK_SECRET: replace_me
         run: npm run smoke:webhook -- --url http://localhost:8080 --secret replace_me
 
       - name: Stop server
         if: always()
-        run: kill $(cat server.pid)
+        run: |
+          if [ -f server.pid ]; then kill "$(cat server.pid)"; fi
