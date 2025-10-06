@@ -5,11 +5,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "start": "node src/index.js",
+    "start:dev": "NODE_ENV=development node src/index.js",
+    "smoke:http": "node scripts/smoke.mjs",
+    "smoke:llm": "node scripts/echo-llm.mjs \"Проверка связи\"",
     "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "smoke": "node scripts/smoke.mjs"
+    "format:check": "prettier --check ."
   },
   "keywords": [],
   "author": "",
