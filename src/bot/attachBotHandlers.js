@@ -3,14 +3,12 @@ import { tryLock, unlock } from './antiFlood.js';
 import { SYSTEM_PROMPT } from './prompt.js';
 
 export function attachBotHandlers(bot) {
-  // /start
   bot.onText(/^\/start\b/, async (msg) => {
     const chatId = msg.chat.id;
     console.log(`[/start] chatId=${chatId}`);
     await bot.sendMessage(chatId, 'Привет! Я готов отвечать. Напиши вопрос.');
   });
 
-  // текстовые сообщения
   bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = (msg.text ?? '').trim();

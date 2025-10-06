@@ -1,10 +1,10 @@
 import { config } from './config/env.js';
 import { createServer } from './server/fastify.js';
-import { createWebhookBot } from './bot/webhook.js';
-import { initBot as initPolling } from './bot/index.js'; // твой текущий polling-инициализатор
+import { webhookBot } from './bot/webhookBot.js';
+import { longPollingBot } from './bot/longPollingBot.js';
 
 if (config.BOT_MODE === 'webhook') {
-  const bot = createWebhookBot();
+  const bot = webhookBot();
   const server = createServer((u) => bot.processUpdate(u));
 
   (async () => {
@@ -34,5 +34,5 @@ if (config.BOT_MODE === 'webhook') {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 } else {
   // старый режим: long polling (локальная разработка)
-  initPolling();
+  longPollingBot();
 }
