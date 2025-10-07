@@ -1,0 +1,156 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: cr.yandex
+  IMAGE_NAME: capital-compass
+
+jobs:
+  # ========================================
+  # ЭТАП 1: ПРОВЕРКИ И ТЕСТИРОВАНИЕ
+  # ========================================
+  test:
+    name: Tests and Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.10.0'
+          cache: 'npm'
+
+      - name: Install deps (clean)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Prettier check
+        run: npm run format:check
+
+      # 👇 создаём .env и заполняем ВСЕ ключи из .env.example
+      - name: Prepare .env for smokes
+        run: |
+          cat > .env <<'EOF'
+          API_TIMEOUT_MS=7000
+          TELEGRAM_BOT_TOKEN=dummy
+          YC_API_KEY=dummy
+          YC_FOLDER_ID=dummy
+          YC_GPT_MODEL=yandexgpt/latest
+          YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
+          BOT_MODE=webhook
+          DEV_PORT=8080
+          WEBHOOK_SECRET=replace_me
+          PUBLIC_BASE_URL=
+          LOG_LEVEL=warn
+          EOF
+
+      - name: Smoke HTTP (GitHub API)
+        run: npm run smoke:http
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Smoke PDF generation
+        run: npm run smoke:pdf
+
+      - name: Start server (webhook, background)
+        env:
+          BOT_MODE: webhook
+          DEV_PORT: 8080
+          WEBHOOK_SECRET: replace_me
+          LOG_LEVEL: warn
+          TELEGRAM_BOT_TOKEN: dummy
+          YC_API_KEY: dummy
+          YC_FOLDER_ID: dummy
+        run: |
+          node src/index.js & echo $! > server.pid
+
+      - name: Wait for health
+        run: |
+          for i in {1..30}; do
+            curl -fsS http://localhost:8080/health && exit 0
+            sleep 1
+          done
+          echo "Server did not become healthy in time" >&2
+          exit 1
+
+      - name: Smoke webhook (dry-run)
+        run: npm run smoke:webhook -- --url http://localhost:8080 --secret replace_me
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill "$(cat server.pid)"; fi
+
+  # ========================================
+  # ЭТАП 2: СБОРКА И ДЕПЛОЙ (только для main)
+  # ========================================
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    needs: test  # Запускается только после успешного прохождения тестов
+    if: github.ref == 'refs/heads/main'  # Только для main ветки
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Yandex Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: json_key
+          password: ${{ secrets.YC_DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Yandex Cloud Serverless Container
+        run: |
+          # Установка Yandex CLI
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          export PATH=$PATH:$HOME/yandex-cloud/bin
+
+          # Аутентификация с помощью service account
+          echo '${{ secrets.YC_SA_JSON }}' > sa.json
+          yc config set service-account-key sa.json
+
+          # Настройка yc
+          yc config set cloud-id ${{ secrets.YC_CLOUD_ID }}
+          yc config set folder-id ${{ secrets.YC_FOLDER_ID }}
+
+          # Обновление ревизии контейнера (контейнер должен быть создан заранее)
+          yc serverless container revision deploy \
+            --container-name ${{ secrets.YC_CONTAINER_NAME }} \
+            --image ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest \
+            --service-account-id ${{ secrets.YC_SERVICE_ACCOUNT_ID }} \
+            --environment "BOT_MODE=webhook,WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }},PUBLIC_BASE_URL=,LOG_LEVEL=info,API_TIMEOUT_MS=7000,TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }},YC_API_KEY=${{ secrets.YC_API_KEY }},YC_FOLDER_ID=${{ secrets.YC_FOLDER_ID }},YC_GPT_MODEL=${{ secrets.YC_GPT_MODEL }},YC_GPT_ENDPOINT=${{ secrets.YC_GPT_ENDPOINT }}" \
+            --memory 512m \
+            --cores 1 \
+            --execution-timeout 30s \
+            --concurrency 1
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f sa.json
