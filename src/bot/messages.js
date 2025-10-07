@@ -31,6 +31,7 @@ export const MESSAGES = {
   BUTTONS: {
     CALCULATE: '🧮 Рассчитать',
     INFO: 'ℹ️ Что такое ПДС?',
+    DOWNLOAD_PDF: '📄 Скачать PDF',
   },
 
   /** Данные для callback-запросов */
@@ -38,6 +39,7 @@ export const MESSAGES = {
     CALCULATE: 'calculate',
     INFO: 'info',
     MAIN_MENU: 'main_menu',
+    DOWNLOAD_PDF: 'download_pdf',
   },
 
   // ========================================
@@ -70,6 +72,7 @@ export const MESSAGES = {
   CALLBACK_RESPONSES: {
     CALCULATE: 'Начинаем расчёт! Отправьте "рассчитать" или напишите свой вопрос.',
     INFO: 'Рассказываю о ПДС!',
+    DOWNLOAD_PDF: 'Генерирую PDF-отчёт...',
     ERROR: 'Произошла ошибка. Попробуйте ещё раз.',
   },
 
@@ -153,6 +156,31 @@ export function createBackToMainKeyboard() {
   return {
     reply_markup: {
       inline_keyboard: [
+        [
+          {
+            text: '🏠 Главное меню',
+            callback_data: MESSAGES.CALLBACK_DATA.MAIN_MENU,
+          },
+        ],
+      ],
+    },
+  };
+}
+
+/**
+ * Создает клавиатуру с кнопкой скачивания PDF
+ * @returns {Object} Объект клавиатуры для Telegram
+ */
+export function createPdfKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: MESSAGES.BUTTONS.DOWNLOAD_PDF,
+            callback_data: MESSAGES.CALLBACK_DATA.DOWNLOAD_PDF,
+          },
+        ],
         [
           {
             text: '🏠 Главное меню',

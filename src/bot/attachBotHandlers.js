@@ -1,10 +1,11 @@
 import { chat } from '../llm/yandex-gpt.js';
 import { tryLock, unlock } from './antiFlood.js';
 import { SYSTEM_PROMPT } from './prompt.js';
-import { MESSAGES, createMainKeyboard, getCommandType } from './messages.js';
+import { MESSAGES, createMainKeyboard, createPdfKeyboard, getCommandType } from './messages.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
 import { getChatContext, addMessageToContext, clearChatContext } from '../storage/chatContext.js';
+import { generatePdfReport } from '../pdf/pdfGenerator.js';
 
 /**
  * Начинает диалог расчёта с LLM
@@ -31,7 +32,14 @@ async function startCalculationDialog(chatId, bot) {
     addMessageToContext(chatId, 'assistant', reply);
 
     markLlm(true);
-    await bot.sendMessage(chatId, reply, { disable_web_page_preview: true });
+
+    // Отправляем ответ с кнопкой PDF
+    const keyboard = createPdfKeyboard();
+    await bot.sendMessage(chatId, reply, {
+      disable_web_page_preview: true,
+      ...keyboard,
+    });
+
     markUpdateOk();
     logger.info({ chatId }, 'calculation:started');
   } catch (e) {
@@ -39,6 +47,47 @@ async function startCalculationDialog(chatId, bot) {
     markUpdateErr();
     logger.error({ chatId, err: e }, 'calculation:error');
     await bot.sendMessage(chatId, MESSAGES.LLM_ERROR);
+  }
+}
+
+/**
+ * Генерирует и отправляет PDF-отчёт
+ */
+async function generateAndSendPdf(chatId, bot) {
+  try {
+    await bot.sendChatAction(chatId, 'typing');
+
+    // Получаем последний ответ бота из контекста
+    const context = getChatContext(chatId);
+    const lastBotMessage = context.filter((msg) => msg.role === 'assistant').pop();
+
+    if (!lastBotMessage) {
+      await bot.sendMessage(chatId, 'Нет данных для генерации отчёта. Сначала выполните расчёт.');
+      return;
+    }
+
+    // Генерируем PDF
+    const pdfBuffer = await generatePdfReport(lastBotMessage.text, {
+      reportDate: new Date().toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      filename: `pension-report-${chatId}-${Date.now()}`,
+    });
+
+    // Отправляем PDF как документ
+    await bot.sendDocument(chatId, pdfBuffer, {
+      filename: `pension-report-${Date.now()}.pdf`,
+      caption: '📄 Ваш отчёт по пенсионным накоплениям готов!',
+    });
+
+    logger.info({ chatId }, 'pdf:generated');
+  } catch (e) {
+    logger.error({ chatId, err: e }, 'pdf:error');
+    await bot.sendMessage(chatId, 'Ошибка при генерации PDF-отчёта. Попробуйте позже.');
   }
 }
 
@@ -127,7 +176,14 @@ export function attachBotHandlers(bot) {
       addMessageToContext(chatId, 'assistant', reply);
 
       markLlm(true);
-      await bot.sendMessage(chatId, reply, { disable_web_page_preview: true });
+
+      // Отправляем ответ с кнопкой PDF
+      const keyboard = createPdfKeyboard();
+      await bot.sendMessage(chatId, reply, {
+        disable_web_page_preview: true,
+        ...keyboard,
+      });
+
       markUpdateOk();
       logger.info({ chatId }, 'msg:out:ok');
     } catch (e) {
@@ -148,6 +204,13 @@ export function attachBotHandlers(bot) {
     logger.info({ chatId, data }, 'callback:received');
 
     try {
+      // Обработка PDF-генерации
+      if (data === MESSAGES.CALLBACK_DATA.DOWNLOAD_PDF) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Генерирую PDF...' });
+        await generateAndSendPdf(chatId, bot);
+        return;
+      }
+
       // Маппинг callback_data на команды
       const commandMap = {
         [MESSAGES.CALLBACK_DATA.CALCULATE]: 'calculate',
