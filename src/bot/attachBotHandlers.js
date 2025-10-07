@@ -113,7 +113,6 @@ export function attachBotHandlers(bot) {
   bot.on('callback_query', async (callbackQuery) => {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
-    const messageId = callbackQuery.message.message_id;
 
     logger.info({ chatId, data }, 'callback:received');
 
