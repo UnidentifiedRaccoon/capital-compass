@@ -75,7 +75,7 @@ jobs:
           yc serverless container revision deploy \
             --container-name ${{ secrets.YC_CONTAINER_NAME }} \
             --image ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest \
-            --service-account-id ${{ secrets.YC_SERVICE_ACCOUNT_ID }} \
+            --service-account-id ${{ fromJson(secrets.YC_SA_JSON).service_account_id }} \
             --environment "BOT_MODE=webhook,WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }},PUBLIC_BASE_URL=,LOG_LEVEL=info,API_TIMEOUT_MS=7000,TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }},YC_API_KEY=${{ secrets.YC_API_KEY }},YC_FOLDER_ID=${{ secrets.YC_FOLDER_ID }},YC_GPT_MODEL=${{ secrets.YC_GPT_MODEL }},YC_GPT_ENDPOINT=${{ secrets.YC_GPT_ENDPOINT }}" \
             --memory 512m \
             --cores 1 \
