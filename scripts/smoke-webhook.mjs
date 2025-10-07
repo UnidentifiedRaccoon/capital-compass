@@ -5,7 +5,8 @@ function getArg(flag, fallback) {
   const i = process.argv.indexOf(flag);
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
-const baseUrl = (getArg('--url', `http://localhost:${config.PORT}`) || '').replace(/\/$/, '');
+const port = process.env.PORT || config.DEV_PORT;
+const baseUrl = (getArg('--url', `http://localhost:${port}`) || '').replace(/\/$/, '');
 const secret = getArg('--secret', config.WEBHOOK_SECRET);
 const text = getArg('--text', 'Привет от smoke');
 const chatIdArg = getArg('--chat-id', '');

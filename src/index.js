@@ -10,8 +10,9 @@ if (config.BOT_MODE === 'webhook') {
 
   (async () => {
     try {
-      await server.listen({ port: config.PORT, host: '0.0.0.0' });
-      logger.info({ port: config.PORT }, 'http:listening');
+      const port = process.env.PORT || config.DEV_PORT;
+      await server.listen({ port, host: '0.0.0.0' });
+      logger.info({ port }, 'http:listening');
       if (config.PUBLIC_BASE_URL) {
         logger.info(
           { webhook: `${config.PUBLIC_BASE_URL}/tg/${config.WEBHOOK_SECRET}` },

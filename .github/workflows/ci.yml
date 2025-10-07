@@ -37,9 +37,9 @@ jobs:
           YC_FOLDER_ID=dummy
           YC_GPT_MODEL=yandexgpt/latest
           YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
-          BOT_MODE=webhook
-          PORT=8080
-          WEBHOOK_SECRET=replace_me
+           BOT_MODE=webhook
+           DEV_PORT=8080
+           WEBHOOK_SECRET=replace_me
           PUBLIC_BASE_URL=
           LOG_LEVEL=warn
           EOF
@@ -50,7 +50,7 @@ jobs:
       - name: Start server (webhook, background)
         env:
           BOT_MODE: webhook
-          PORT: 8080
+          DEV_PORT: 8080
           WEBHOOK_SECRET: replace_me
           LOG_LEVEL: warn
           TELEGRAM_BOT_TOKEN: dummy

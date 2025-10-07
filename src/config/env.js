@@ -15,7 +15,7 @@ export const config = cleanEnv(process.env, {
   }),
 
   BOT_MODE: str({ default: 'webhook' }),
-  PORT: num({ default: 8080 }),
+  DEV_PORT: num({ default: 8080 }),
   WEBHOOK_SECRET: str(),
   PUBLIC_BASE_URL: str({ default: '' }), // заполним позже
 });
