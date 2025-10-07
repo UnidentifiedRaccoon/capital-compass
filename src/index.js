@@ -4,15 +4,17 @@ import { webhookBot } from './bot/webhookBot.js';
 import { longPollingBot } from './bot/longPollingBot.js';
 import { logger } from './logger.js';
 
+const platformPort = process.env.PORT && Number(process.env.PORT);
+const PORT = platformPort || config.DEV_PORT; // в YC возьмём PORT, локально DEV_PORT
+
 if (config.BOT_MODE === 'webhook') {
   const bot = webhookBot();
   const server = createServer((u) => bot.processUpdate(u));
 
   (async () => {
     try {
-      const port = process.env.PORT || config.DEV_PORT;
-      await server.listen({ port, host: '0.0.0.0' });
-      logger.info({ port }, 'http:listening');
+      await server.listen({ port: PORT, host: '0.0.0.0' });
+      logger.info({ port: PORT }, 'http:listening');
       if (config.PUBLIC_BASE_URL) {
         logger.info(
           { webhook: `${config.PUBLIC_BASE_URL}/tg/${config.WEBHOOK_SECRET}` },
@@ -34,6 +36,7 @@ if (config.BOT_MODE === 'webhook') {
       logger.info('shutdown:done');
     } catch (e) {
       logger.fatal({ err: e }, 'shutdown:error');
+      throw e;
     }
   };
   process.on('SIGINT', () => shutdown('SIGINT'));

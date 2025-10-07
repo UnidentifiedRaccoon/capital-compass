@@ -1,7 +1,11 @@
+import fs from 'node:fs';
 import dotenvSafe from 'dotenv-safe';
 import { cleanEnv, num, str, url } from 'envalid';
 
-dotenvSafe.config({ example: '.env.example', allowEmptyValues: true });
+// Загружаем .env только локально/в CI — в YC его нет
+if (fs.existsSync('.env')) {
+  dotenvSafe.config({ example: '.env.example', allowEmptyValues: true });
+}
 
 export const config = cleanEnv(process.env, {
   API_TIMEOUT_MS: num({ default: 7000 }),
