@@ -58,7 +58,7 @@ jobs:
           export PATH=$PATH:$HOME/yandex-cloud/bin
 
           # Аутентификация с помощью service account
-          echo '${{ secrets.YC_SA_KEY_JSON }}' > sa.json
+          echo '${{ secrets.YC_SA_JSON }}' > sa.json
           yc config set service-account-key sa.json
 
           # Настройка yc

@@ -52,7 +52,7 @@ AQ33HsqRcuiwQ9o8jTrCvCE=
 -----END PRIVATE KEY-----
 ```
 
-### 2. YC_SA_KEY_JSON
+### 2. YC_SA_JSON
 
 **Содержимое:** Весь JSON файл `sa.json` (для Yandex CLI)
 
