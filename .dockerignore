@@ -8,3 +8,7 @@ dist
 logs
 Dockerfile
 docker-compose.yml
+
+# Service account keys
+sa.json
+*.key.json

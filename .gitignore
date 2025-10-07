@@ -1,3 +1,7 @@
 node_modules/
 .DS_Store
 .env
+
+# Service account keys
+sa.json
+*.key.json
