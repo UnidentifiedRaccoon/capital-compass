@@ -20,34 +20,22 @@ export function createServer(onUpdate) {
   // webhook
   const path = `/tg/${config.WEBHOOK_SECRET}`;
   app.post(path, async (request, reply) => {
-    const start = Date.now();
-    try {
-      const secret = request.headers['x-telegram-bot-api-secret-token'];
-      if (secret && secret !== config.WEBHOOK_SECRET) {
-        reply.code(401);
-        return { ok: false, error: 'bad secret' };
-      }
-
-      const update = request.body;
-      logger.debug({ update_id: update?.update_id }, 'webhook:update:received');
-
-      // мгновенно подтверждаем Telegram и обрабатываем в фоне
-      reply.send({ ok: true });
-      void (async () => {
-        try {
-          await onUpdate(update);
-        } catch (e) {
-          logger.error({ err: e }, 'webhook:handler:error');
-        } finally {
-          const dur = Date.now() - start;
-          logger.debug({ dur }, 'webhook:update:handled');
-        }
-      })();
-    } catch (e) {
-      logger.error({ err: e }, 'webhook:handler:fatal');
-      reply.code(500);
-      return { ok: false };
+    const secret = request.headers['x-telegram-bot-api-secret-token'];
+    if (secret && secret !== config.WEBHOOK_SECRET) {
+      reply.code(401);
+      return { ok: false, error: 'bad secret' };
     }
+
+    const update = request.body;
+    logger.debug({ update_id: update?.update_id }, 'webhook:update:received');
+
+    // мгновенно подтверждаем Telegram и обрабатываем в фоне
+    reply.send({ ok: true });
+
+    // Обрабатываем в фоне без дополнительных try-catch
+    onUpdate(update).catch((e) => {
+      logger.error({ err: e }, 'webhook:handler:error');
+    });
   });
 
   return app;

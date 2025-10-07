@@ -1,47 +1,53 @@
 import { chat } from '../llm/yandex-gpt.js';
 import { tryLock, unlock } from './antiFlood.js';
 import { SYSTEM_PROMPT } from './prompt.js';
-import { MESSAGES, createMainKeyboard } from './messages.js';
+import { MESSAGES, createMainKeyboard, getCommandType } from './messages.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
 import { getChatContext, addMessageToContext, clearChatContext } from '../storage/chatContext.js';
 
+/**
+ * Обработка команд пользователя
+ */
+async function handleCommand(chatId, command, bot) {
+  switch (command) {
+    case 'start': {
+      clearChatContext(chatId);
+      const keyboard = createMainKeyboard();
+      await bot.sendMessage(chatId, MESSAGES.WELCOME, keyboard);
+      break;
+    }
+    case 'clear':
+      clearChatContext(chatId);
+      await bot.sendMessage(chatId, MESSAGES.CLEAR_CONTEXT);
+      break;
+    case 'calculate':
+      await bot.sendMessage(chatId, MESSAGES.CALCULATE_PROMPT);
+      break;
+    case 'info':
+      await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS);
+      break;
+    default:
+      await bot.sendMessage(chatId, MESSAGES.UNKNOWN_COMMAND);
+  }
+}
+
 export function attachBotHandlers(bot) {
-  bot.onText(/^\/start\b/, async (msg) => {
+  // Обработчик команд /start и /clear
+  bot.onText(/^\/(start|clear)\b/, async (msg) => {
     const chatId = msg.chat.id;
-    logger.info({ chatId }, 'cmd:/start');
-
-    // Очищаем контекст при /start
-    clearChatContext(chatId);
-
-    const keyboard = createMainKeyboard();
-    await bot.sendMessage(chatId, MESSAGES.WELCOME, keyboard);
+    const command = msg.text.split(' ')[0].substring(1); // убираем /
+    logger.info({ chatId, command }, 'cmd:slash');
+    await handleCommand(chatId, command, bot);
   });
 
-  bot.onText(/^\/clear\b/, async (msg) => {
+  // Обработчик текстовых команд
+  bot.onText(/^(рассчитать|что такое пдс\?*)$/i, async (msg) => {
     const chatId = msg.chat.id;
-    logger.info({ chatId }, 'cmd:/clear');
-
-    // Очищаем контекст чата
-    clearChatContext(chatId);
-
-    await bot.sendMessage(chatId, MESSAGES.CLEAR_CONTEXT);
-  });
-
-  // Обработчик команды "рассчитать"
-  bot.onText(/^рассчитать$/i, async (msg) => {
-    const chatId = msg.chat.id;
-    logger.info({ chatId }, 'cmd:calculate');
-
-    await bot.sendMessage(chatId, MESSAGES.CALCULATE_PROMPT);
-  });
-
-  // Обработчик команды "что такое пдс"
-  bot.onText(/^что такое пдс\?*$/i, async (msg) => {
-    const chatId = msg.chat.id;
-    logger.info({ chatId }, 'cmd:info');
-
-    await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS);
+    const text = msg.text.toLowerCase().trim();
+    const command = getCommandType(text) || 'unknown';
+    logger.info({ chatId, command }, 'cmd:text');
+    await handleCommand(chatId, command, bot);
   });
 
   bot.on('message', async (msg) => {
@@ -57,7 +63,6 @@ export function attachBotHandlers(bot) {
       return;
     }
 
-    const t0 = Date.now();
     try {
       await bot.sendChatAction(chatId, 'typing');
 
@@ -78,12 +83,12 @@ export function attachBotHandlers(bot) {
       // Добавляем ответ бота в контекст
       addMessageToContext(chatId, 'assistant', reply);
 
-      markLlm(true, Date.now() - t0);
+      markLlm(true);
       await bot.sendMessage(chatId, reply, { disable_web_page_preview: true });
       markUpdateOk();
       logger.info({ chatId }, 'msg:out:ok');
     } catch (e) {
-      markLlm(false, Date.now() - t0);
+      markLlm(false);
       markUpdateErr();
       logger.error({ chatId, err: e }, 'msg:out:error');
       await bot.sendMessage(chatId, MESSAGES.LLM_ERROR);
@@ -100,16 +105,21 @@ export function attachBotHandlers(bot) {
     logger.info({ chatId, data }, 'callback:received');
 
     try {
-      if (data === MESSAGES.CALLBACK_DATA.CALCULATE) {
-        await bot.answerCallbackQuery(callbackQuery.id, {
-          text: MESSAGES.CALLBACK_RESPONSES.CALCULATE,
-        });
-        await bot.sendMessage(chatId, MESSAGES.CALCULATE_PROMPT);
-      } else if (data === MESSAGES.CALLBACK_DATA.INFO) {
-        await bot.answerCallbackQuery(callbackQuery.id, {
-          text: MESSAGES.CALLBACK_RESPONSES.INFO,
-        });
-        await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS);
+      // Маппинг callback_data на команды
+      const commandMap = {
+        [MESSAGES.CALLBACK_DATA.CALCULATE]: 'calculate',
+        [MESSAGES.CALLBACK_DATA.INFO]: 'info',
+        [MESSAGES.CALLBACK_DATA.MAIN_MENU]: 'start',
+      };
+
+      const command = commandMap[data];
+      if (command) {
+        // Отвечаем на callback
+        const responseText = MESSAGES.CALLBACK_RESPONSES[command.toUpperCase()] || 'OK';
+        await bot.answerCallbackQuery(callbackQuery.id, { text: responseText });
+
+        // Выполняем команду
+        await handleCommand(chatId, command, bot);
       }
     } catch (e) {
       logger.error({ chatId, err: e }, 'callback:error');

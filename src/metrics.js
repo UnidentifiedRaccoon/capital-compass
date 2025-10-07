@@ -6,13 +6,10 @@ export const metrics = {
   updates_err: 0,
   llm_calls: 0,
   llm_failed: 0,
-  llm_last_latency_ms: 0,
-  last_update_ts: 0,
 };
 
 export const markUpdateStart = () => {
   metrics.updates_total += 1;
-  metrics.last_update_ts = Date.now();
 };
 
 export const markUpdateOk = () => {
@@ -23,14 +20,12 @@ export const markUpdateErr = () => {
   metrics.updates_err += 1;
 };
 
-export const markLlm = (ok, latencyMs = 0) => {
+export const markLlm = (ok) => {
   metrics.llm_calls += 1;
   if (!ok) metrics.llm_failed += 1;
-  metrics.llm_last_latency_ms = latencyMs;
 };
 
 export const metricsSnapshot = async () => {
-  // Динамически импортируем для избежания циклических зависимостей
   const { getContextStats } = await import('./storage/chatContext.js');
   const contextStats = getContextStats();
 

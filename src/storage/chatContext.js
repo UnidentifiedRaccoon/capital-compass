@@ -78,6 +78,7 @@ export function getContextStats() {
 
 /**
  * Очистить старые контексты (старше 24 часов)
+ * Вызывается вручную при необходимости
  */
 export function cleanupOldContexts() {
   const now = Date.now();
@@ -89,6 +90,3 @@ export function cleanupOldContexts() {
     }
   }
 }
-
-// Периодическая очистка старых контекстов (каждые 6 часов)
-setInterval(cleanupOldContexts, 6 * 60 * 60 * 1000);

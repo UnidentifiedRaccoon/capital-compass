@@ -1,5 +1,17 @@
 import { config } from '../../config/env.js';
-import { HttpError } from './HttpError.js';
+
+/**
+ * Простой класс HTTP ошибки
+ */
+class HttpError extends Error {
+  constructor(status, statusText, bodySnippet = '') {
+    const note = bodySnippet ? ` – ${bodySnippet}` : '';
+    super(`HTTP ${status} ${statusText}${note}`);
+    this.name = 'HttpError';
+    this.status = status;
+    this.statusText = statusText;
+  }
+}
 
 /**
  * Базовый fetch с таймаутом и дефолтными заголовками.
@@ -34,4 +46,12 @@ export async function request(url, options = {}) {
   }
 
   return res;
+}
+
+/**
+ * Простая функция для получения JSON
+ */
+export async function getJSON(url, options = {}) {
+  const res = await request(url, options);
+  return res.json();
 }
