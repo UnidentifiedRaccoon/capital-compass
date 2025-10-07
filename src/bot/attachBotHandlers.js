@@ -1,6 +1,7 @@
 import { chat } from '../llm/yandex-gpt.js';
 import { tryLock, unlock } from './antiFlood.js';
 import { SYSTEM_PROMPT } from './prompt.js';
+import { MESSAGES, createMainKeyboard } from './messages.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
 import { getChatContext, addMessageToContext, clearChatContext } from '../storage/chatContext.js';
@@ -13,20 +14,8 @@ export function attachBotHandlers(bot) {
     // Очищаем контекст при /start
     clearChatContext(chatId);
 
-    const welcomeText = `👋 Привет! Я Capital Compass AI. Помогу рассчитать взносы по ПДС, прогноз капитала и ежемесячную выплату. Готов начать? — Нажми «🧮 Рассчитать» или отправь «рассчитать». — Хочешь узнать о правилах ПДС — выбери «ℹ️ Что такое ПДС?».`;
-
-    const keyboard = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '🧮 Рассчитать', callback_data: 'calculate' },
-            { text: 'ℹ️ Что такое ПДС?', callback_data: 'info' },
-          ],
-        ],
-      },
-    };
-
-    await bot.sendMessage(chatId, welcomeText, keyboard);
+    const keyboard = createMainKeyboard();
+    await bot.sendMessage(chatId, MESSAGES.WELCOME, keyboard);
   });
 
   bot.onText(/^\/clear\b/, async (msg) => {
@@ -36,7 +25,7 @@ export function attachBotHandlers(bot) {
     // Очищаем контекст чата
     clearChatContext(chatId);
 
-    await bot.sendMessage(chatId, 'Контекст чата очищен. Начинаем с чистого листа! 🧹');
+    await bot.sendMessage(chatId, MESSAGES.CLEAR_CONTEXT);
   });
 
   // Обработчик команды "рассчитать"
@@ -44,10 +33,7 @@ export function attachBotHandlers(bot) {
     const chatId = msg.chat.id;
     logger.info({ chatId }, 'cmd:calculate');
 
-    await bot.sendMessage(
-      chatId,
-      'Отлично! Давайте рассчитаем ваши пенсионные накопления. Отправьте "рассчитать" или напишите свой вопрос, и я помогу с расчётами по ПДС.'
-    );
+    await bot.sendMessage(chatId, MESSAGES.CALCULATE_PROMPT);
   });
 
   // Обработчик команды "что такое пдс"
@@ -55,10 +41,7 @@ export function attachBotHandlers(bot) {
     const chatId = msg.chat.id;
     logger.info({ chatId }, 'cmd:info');
 
-    await bot.sendMessage(
-      chatId,
-      'Программа долгосрочных сбережений (ПДС) — это государственная программа для накопления на пенсию с дополнительными льготами:\n\n🏛️ Государственное софинансирование до 36 000 ₽ в год\n💸 Налоговый вычет до 52 000 ₽ в год\n🔒 Гарантирование средств государством до 2,8 млн ₽\n\nОтправьте "рассчитать" для персонального расчёта!'
-    );
+    await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS);
   });
 
   bot.on('message', async (msg) => {
@@ -70,7 +53,7 @@ export function attachBotHandlers(bot) {
     logger.info({ chatId, text }, 'msg:in');
 
     if (!tryLock(chatId)) {
-      await bot.sendMessage(chatId, 'Подожди, ещё отвечаю на прошлый вопрос…');
+      await bot.sendMessage(chatId, MESSAGES.WAIT_PREVIOUS);
       return;
     }
 
@@ -103,7 +86,7 @@ export function attachBotHandlers(bot) {
       markLlm(false, Date.now() - t0);
       markUpdateErr();
       logger.error({ chatId, err: e }, 'msg:out:error');
-      await bot.sendMessage(chatId, 'Не удалось получить ответ. Попробуй ещё раз позже.');
+      await bot.sendMessage(chatId, MESSAGES.LLM_ERROR);
     } finally {
       unlock(chatId);
     }
@@ -117,25 +100,21 @@ export function attachBotHandlers(bot) {
     logger.info({ chatId, data }, 'callback:received');
 
     try {
-      if (data === 'calculate') {
+      if (data === MESSAGES.CALLBACK_DATA.CALCULATE) {
         await bot.answerCallbackQuery(callbackQuery.id, {
-          text: 'Начинаем расчёт! Отправьте "рассчитать" или напишите свой вопрос.',
+          text: MESSAGES.CALLBACK_RESPONSES.CALCULATE,
         });
-        await bot.sendMessage(
-          chatId,
-          'Отлично! Давайте рассчитаем ваши пенсионные накопления. Отправьте "рассчитать" или напишите свой вопрос, и я помогу с расчётами по ПДС.'
-        );
-      } else if (data === 'info') {
-        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Рассказываю о ПДС!' });
-        await bot.sendMessage(
-          chatId,
-          'Программа долгосрочных сбережений (ПДС) — это государственная программа для накопления на пенсию с дополнительными льготами:\n\n🏛️ Государственное софинансирование до 36 000 ₽ в год\n💸 Налоговый вычет до 52 000 ₽ в год\n🔒 Гарантирование средств государством до 2,8 млн ₽\n\nОтправьте "рассчитать" для персонального расчёта!'
-        );
+        await bot.sendMessage(chatId, MESSAGES.CALCULATE_PROMPT);
+      } else if (data === MESSAGES.CALLBACK_DATA.INFO) {
+        await bot.answerCallbackQuery(callbackQuery.id, {
+          text: MESSAGES.CALLBACK_RESPONSES.INFO,
+        });
+        await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS);
       }
     } catch (e) {
       logger.error({ chatId, err: e }, 'callback:error');
       await bot.answerCallbackQuery(callbackQuery.id, {
-        text: 'Произошла ошибка. Попробуйте ещё раз.',
+        text: MESSAGES.CALLBACK_RESPONSES.ERROR,
       });
     }
   });
