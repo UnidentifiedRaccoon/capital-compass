@@ -63,3 +63,5 @@ MIT (или своя).
 # Another test comment
 
 # Test deployment after role update
+
+# Test with updated secret
