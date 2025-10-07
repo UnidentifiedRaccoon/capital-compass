@@ -69,3 +69,5 @@ MIT (или своя).
 # Test with new service account
 
 # Test with new service account ajemii992ds3ltmqla1v
+
+# Test CI deployment
