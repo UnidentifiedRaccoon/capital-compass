@@ -8,12 +8,11 @@
 
 ### Обязательные:
 
-- `YC_SA_JSON` - весь JSON файл `sa.json`
+- `YC_SA_JSON` - весь JSON файл `sa.json` (из него извлекаются `service_account_id` и `private_key`)
 - `YC_REGISTRY_ID` - ID Container Registry
 - `YC_FOLDER_ID` - ID папки в Yandex Cloud
 - `YC_CLOUD_ID` - ID облака
 - `YC_CONTAINER_NAME` - имя контейнера
-- `YC_SERVICE_ACCOUNT_ID` - ID сервисного аккаунта (из `sa.json`: `aje8smeevvt1djo39tfs`)
 - `WEBHOOK_SECRET` - секрет для webhook
 - Переменные окружения приложения
 
@@ -57,7 +56,7 @@ yc serverless container create \
 
 ### "Service account is not available"
 
-- Проверьте, что `YC_SERVICE_ACCOUNT_ID` правильный
+- Проверьте, что `YC_SA_JSON` содержит правильный `service_account_id`
 - Убедитесь, что сервисный аккаунт активен
 - Проверьте права доступа
 
