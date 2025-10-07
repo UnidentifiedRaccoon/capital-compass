@@ -26,7 +26,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: json_key
-          password: ${{ secrets.YC_SA_KEY_JSON }}
+          password: ${{ secrets.YC_DOCKER_PASSWORD }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
