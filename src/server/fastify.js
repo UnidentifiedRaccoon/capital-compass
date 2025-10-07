@@ -15,7 +15,7 @@ export function createServer(onUpdate) {
   app.get('/health', async () => ({ ok: true }));
 
   // metrics (простые in-memory метрики)
-  app.get('/metrics', async () => metricsSnapshot());
+  app.get('/metrics', async () => await metricsSnapshot());
 
   // webhook
   const path = `/tg/${config.WEBHOOK_SECRET}`;

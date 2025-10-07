@@ -29,7 +29,14 @@ export const markLlm = (ok, latencyMs = 0) => {
   metrics.llm_last_latency_ms = latencyMs;
 };
 
-export const metricsSnapshot = () => ({
-  ...metrics,
-  uptime_s: Math.floor((Date.now() - startedAt) / 1000),
-});
+export const metricsSnapshot = async () => {
+  // Динамически импортируем для избежания циклических зависимостей
+  const { getContextStats } = await import('./storage/chatContext.js');
+  const contextStats = getContextStats();
+
+  return {
+    ...metrics,
+    uptime_s: Math.floor((Date.now() - startedAt) / 1000),
+    context: contextStats,
+  };
+};
