@@ -7,6 +7,42 @@ import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metric
 import { getChatContext, addMessageToContext, clearChatContext } from '../storage/chatContext.js';
 
 /**
+ * Начинает диалог расчёта с LLM
+ */
+async function startCalculationDialog(chatId, bot) {
+  try {
+    await bot.sendChatAction(chatId, 'typing');
+
+    // Добавляем сообщение пользователя в контекст (имитируем запрос на расчёт)
+    addMessageToContext(chatId, 'user', 'рассчитать');
+
+    // Получаем контекст чата
+    const context = getChatContext(chatId);
+
+    // Формируем сообщения для LLM (системный промпт + контекст)
+    const messages = [
+      { role: 'system', text: SYSTEM_PROMPT },
+      ...context.map((msg) => ({ role: msg.role, text: msg.text })),
+    ];
+
+    const reply = await chat(messages);
+
+    // Добавляем ответ бота в контекст
+    addMessageToContext(chatId, 'assistant', reply);
+
+    markLlm(true);
+    await bot.sendMessage(chatId, reply, { disable_web_page_preview: true });
+    markUpdateOk();
+    logger.info({ chatId }, 'calculation:started');
+  } catch (e) {
+    markLlm(false);
+    markUpdateErr();
+    logger.error({ chatId, err: e }, 'calculation:error');
+    await bot.sendMessage(chatId, MESSAGES.LLM_ERROR);
+  }
+}
+
+/**
  * Обработка команд пользователя
  */
 async function handleCommand(chatId, command, bot) {
@@ -22,7 +58,8 @@ async function handleCommand(chatId, command, bot) {
       await bot.sendMessage(chatId, MESSAGES.CLEAR_CONTEXT);
       break;
     case 'calculate':
-      await bot.sendMessage(chatId, MESSAGES.CALCULATE_PROMPT);
+      // Сразу начинаем диалог с LLM для сбора данных
+      await startCalculationDialog(chatId, bot);
       break;
     case 'info':
       await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS);
@@ -47,7 +84,13 @@ export function attachBotHandlers(bot) {
     const text = msg.text.toLowerCase().trim();
     const command = getCommandType(text) || 'unknown';
     logger.info({ chatId, command }, 'cmd:text');
-    await handleCommand(chatId, command, bot);
+
+    // Для команды calculate сразу начинаем диалог
+    if (command === 'calculate') {
+      await startCalculationDialog(chatId, bot);
+    } else {
+      await handleCommand(chatId, command, bot);
+    }
   });
 
   bot.on('message', async (msg) => {
@@ -114,12 +157,18 @@ export function attachBotHandlers(bot) {
 
       const command = commandMap[data];
       if (command) {
-        // Отвечаем на callback
-        const responseText = MESSAGES.CALLBACK_RESPONSES[command.toUpperCase()] || 'OK';
-        await bot.answerCallbackQuery(callbackQuery.id, { text: responseText });
+        // Для команды calculate не показываем промежуточное сообщение
+        if (command === 'calculate') {
+          await bot.answerCallbackQuery(callbackQuery.id, { text: 'Начинаем расчёт!' });
+          await startCalculationDialog(chatId, bot);
+        } else {
+          // Отвечаем на callback
+          const responseText = MESSAGES.CALLBACK_RESPONSES[command.toUpperCase()] || 'OK';
+          await bot.answerCallbackQuery(callbackQuery.id, { text: responseText });
 
-        // Выполняем команду
-        await handleCommand(chatId, command, bot);
+          // Выполняем команду
+          await handleCommand(chatId, command, bot);
+        }
       }
     } catch (e) {
       logger.error({ chatId, err: e }, 'callback:error');
