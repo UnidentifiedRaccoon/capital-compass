@@ -53,11 +53,11 @@ jobs:
           yc config set cloud-id ${{ secrets.YC_CLOUD_ID }}
           yc config set folder-id ${{ secrets.YC_FOLDER_ID }}
 
-          # Создание или обновление serverless container
+          # Создание или обновление serverless container (игнорируем ошибку если уже существует)
           yc serverless container create \
             --name ${{ secrets.YC_CONTAINER_NAME }} \
             --description "Capital Compass AI Telegram Bot" \
-            --folder-id ${{ secrets.YC_FOLDER_ID }} || true
+            --folder-id ${{ secrets.YC_FOLDER_ID }} 2>/dev/null || echo "Container already exists, continuing..."
 
           # Создание ревизии контейнера
           yc serverless container revision deploy \
@@ -68,8 +68,7 @@ jobs:
             --memory 512m \
             --cores 1 \
             --execution-timeout 30s \
-            --concurrency 1 \
-            --public-endpoint
+            --concurrency 1
 
       - name: Cleanup
         if: always()
