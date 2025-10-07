@@ -5,11 +5,7 @@
 import { generatePdfReportToFile } from '../src/pdf/pdfGenerator.js';
 import { createReportHtml } from '../src/pdf/markdownParser.js';
 import { extractDataForVisualization } from '../src/pdf/dataExtractor.js';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { join } from 'path';
 
 // Пример ответа бота из вашего сообщения
 const testBotResponse = `🎯 **Цель:** рассчитать необходимый взнос в ПДС для обеспечения ежемесячной выплаты в размере 150 000 ₽ после выхода на пенсию.
@@ -65,15 +61,17 @@ async function testPdfGeneration() {
       }),
     });
 
-    // Сохраняем HTML для просмотра
-    const htmlPath = join(__dirname, '..', 'test-report.html');
+    // Сохраняем HTML во временную директорию
+    const os = await import('os');
+    const tempDir = os.tmpdir();
+    const htmlPath = join(tempDir, 'test-report.html');
     const fs = await import('fs/promises');
     await fs.writeFile(htmlPath, html);
     console.log(`✅ HTML сохранён: ${htmlPath}`);
 
     // Тестируем PDF-генерацию
     console.log('📄 Генерируем PDF...');
-    const pdfPath = join(__dirname, '..', 'test-report.pdf');
+    const pdfPath = join(tempDir, 'test-report.pdf');
     await generatePdfReportToFile(testBotResponse, pdfPath, {
       reportDate: new Date().toLocaleDateString('ru-RU', {
         year: 'numeric',
@@ -86,6 +84,15 @@ async function testPdfGeneration() {
     });
 
     console.log(`✅ PDF сохранён: ${pdfPath}`);
+
+    // Очищаем временные файлы
+    try {
+      await fs.unlink(htmlPath);
+      await fs.unlink(pdfPath);
+      console.log('🧹 Временные файлы очищены');
+    } catch (error) {
+      // Игнорируем ошибки очистки
+    }
     console.log('🎉 Тест завершён успешно!');
   } catch (error) {
     console.error('❌ Ошибка при тестировании:', error.message);
