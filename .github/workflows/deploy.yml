@@ -53,17 +53,11 @@ jobs:
           yc config set cloud-id ${{ secrets.YC_CLOUD_ID }}
           yc config set folder-id ${{ secrets.YC_FOLDER_ID }}
 
-          # Создание или обновление serverless container (игнорируем ошибку если уже существует)
-          yc serverless container create \
-            --name ${{ secrets.YC_CONTAINER_NAME }} \
-            --description "Capital Compass AI Telegram Bot" \
-            --folder-id ${{ secrets.YC_FOLDER_ID }} 2>/dev/null || echo "Container already exists, continuing..."
-
-          # Создание ревизии контейнера
+          # Обновление ревизии контейнера (контейнер должен быть создан заранее)
           yc serverless container revision deploy \
             --container-name ${{ secrets.YC_CONTAINER_NAME }} \
             --image ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest \
-            --service-account-id ${{ fromJson(secrets.YC_SA_JSON).service_account_id }} \
+            --service-account-id ${{ secrets.YC_SERVICE_ACCOUNT_ID }} \
             --environment "BOT_MODE=webhook,WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }},PUBLIC_BASE_URL=,LOG_LEVEL=info,API_TIMEOUT_MS=7000,TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }},YC_API_KEY=${{ secrets.YC_API_KEY }},YC_FOLDER_ID=${{ secrets.YC_FOLDER_ID }},YC_GPT_MODEL=${{ secrets.YC_GPT_MODEL }},YC_GPT_ENDPOINT=${{ secrets.YC_GPT_ENDPOINT }}" \
             --memory 512m \
             --cores 1 \
