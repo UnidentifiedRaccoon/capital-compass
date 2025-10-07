@@ -59,12 +59,24 @@ async function generateAndSendPdf(chatId, bot) {
 
     // Получаем последний ответ бота из контекста
     const context = getChatContext(chatId);
+    logger.info({ chatId, contextLength: context.length }, 'pdf:context:check');
+
     const lastBotMessage = context.filter((msg) => msg.role === 'assistant').pop();
+    logger.info(
+      { chatId, hasLastMessage: !!lastBotMessage, messageLength: lastBotMessage?.text?.length },
+      'pdf:lastMessage:check'
+    );
 
     if (!lastBotMessage) {
+      logger.warn({ chatId, contextLength: context.length }, 'pdf:noData');
       await bot.sendMessage(chatId, 'Нет данных для генерации отчёта. Сначала выполните расчёт.');
       return;
     }
+
+    logger.info(
+      { chatId, messagePreview: lastBotMessage.text.substring(0, 100) },
+      'pdf:generating'
+    );
 
     // Генерируем PDF
     const pdfBuffer = await generatePdfReport(lastBotMessage.text, {
@@ -78,15 +90,17 @@ async function generateAndSendPdf(chatId, bot) {
       filename: `pension-report-${chatId}-${Date.now()}`,
     });
 
+    logger.info({ chatId, pdfSize: pdfBuffer.length }, 'pdf:generated');
+
     // Отправляем PDF как документ
     await bot.sendDocument(chatId, pdfBuffer, {
       filename: `pension-report-${Date.now()}.pdf`,
       caption: '📄 Ваш отчёт по пенсионным накоплениям готов!',
     });
 
-    logger.info({ chatId }, 'pdf:generated');
+    logger.info({ chatId }, 'pdf:sent');
   } catch (e) {
-    logger.error({ chatId, err: e }, 'pdf:error');
+    logger.error({ chatId, err: e.message, stack: e.stack }, 'pdf:error');
     await bot.sendMessage(chatId, 'Ошибка при генерации PDF-отчёта. Попробуйте позже.');
   }
 }

@@ -23,6 +23,12 @@ export async function generatePdfReport(botResponse, options = {}) {
   try {
     logger.info('Начинаем генерацию PDF-отчёта', { filename });
 
+    // Проверяем доступность Playwright
+    const isPlaywrightAvailable = await checkPlaywrightAvailability();
+    if (!isPlaywrightAvailable) {
+      throw new Error('Playwright недоступен. Убедитесь, что браузеры установлены.');
+    }
+
     // Создаём HTML-отчёт
     const htmlContent = createReportHtml(botResponse, { reportDate });
 
