@@ -65,3 +65,5 @@ MIT (или своя).
 # Test deployment after role update
 
 # Test with updated secret
+
+# Test with new service account
