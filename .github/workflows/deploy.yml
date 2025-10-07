@@ -61,8 +61,7 @@ jobs:
             --memory 512m \
             --cores 1 \
             --execution-timeout 30s \
-            --concurrency 1 \
-            --public-endpoint
+            --concurrency 1
 
       - name: Cleanup
         if: always()
