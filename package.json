@@ -12,6 +12,7 @@
     "smoke:webhook": "node scripts/smoke-webhook.mjs",
     "smoke:pdf": "node scripts/test-pdf.mjs",
     "test:bot-pdf": "node scripts/test-bot-pdf.mjs",
+    "test:button-logic": "node scripts/test-button-logic.mjs",
     "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
     "format": "prettier --write .",

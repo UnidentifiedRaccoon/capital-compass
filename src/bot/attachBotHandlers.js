@@ -1,11 +1,38 @@
 import { chat } from '../llm/yandex-gpt.js';
 import { tryLock, unlock } from './antiFlood.js';
 import { SYSTEM_PROMPT } from './prompt.js';
-import { MESSAGES, createMainKeyboard, createPdfKeyboard, getCommandType } from './messages.js';
+import {
+  MESSAGES,
+  createMainKeyboard,
+  createPdfKeyboard,
+  createBackToMainKeyboard,
+  getCommandType,
+} from './messages.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
 import { getChatContext, addMessageToContext, clearChatContext } from '../storage/chatContext.js';
 import { generatePdfReport } from '../pdf/pdfGenerator.js';
+
+/**
+ * Проверяет, является ли ответ бота расчётом пенсионных накоплений
+ * @param {string} response - Ответ бота
+ * @returns {boolean} true если это расчёт
+ */
+function isCalculationResponse(response) {
+  // Проверяем наличие ключевых индикаторов расчёта
+  const calculationIndicators = [
+    '📊 Результаты:',
+    'Требуемый взнос:',
+    'Прогноз капитала',
+    'Ежемесячная выплата',
+    'Разбивка притока:',
+    '💰 Личные взносы:',
+    '🏛️ Господдержка:',
+    '💸 Налоговый вычет:',
+  ];
+
+  return calculationIndicators.some((indicator) => response.includes(indicator));
+}
 
 /**
  * Начинает диалог расчёта с LLM
@@ -33,7 +60,7 @@ async function startCalculationDialog(chatId, bot) {
 
     markLlm(true);
 
-    // Отправляем ответ с кнопкой PDF
+    // Отправляем ответ с кнопкой PDF (всегда для расчётов)
     const keyboard = createPdfKeyboard();
     await bot.sendMessage(chatId, reply, {
       disable_web_page_preview: true,
@@ -191,12 +218,25 @@ export function attachBotHandlers(bot) {
 
       markLlm(true);
 
-      // Отправляем ответ с кнопкой PDF
-      const keyboard = createPdfKeyboard();
-      await bot.sendMessage(chatId, reply, {
-        disable_web_page_preview: true,
-        ...keyboard,
-      });
+      // Проверяем, является ли ответ расчётом
+      const isCalculation = isCalculationResponse(reply);
+      logger.info({ chatId, isCalculation }, 'msg:response:type');
+
+      // Отправляем ответ с кнопкой PDF только для расчётов
+      if (isCalculation) {
+        const keyboard = createPdfKeyboard();
+        await bot.sendMessage(chatId, reply, {
+          disable_web_page_preview: true,
+          ...keyboard,
+        });
+      } else {
+        // Для обычных ответов показываем только кнопку "Главное меню"
+        const keyboard = createBackToMainKeyboard();
+        await bot.sendMessage(chatId, reply, {
+          disable_web_page_preview: true,
+          ...keyboard,
+        });
+      }
 
       markUpdateOk();
       logger.info({ chatId }, 'msg:out:ok');
