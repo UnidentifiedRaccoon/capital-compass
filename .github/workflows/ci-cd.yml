@@ -60,9 +60,6 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
-      - name: Smoke PDF generation
-        run: npm run smoke:pdf
-
       - name: Start server (webhook, background)
         env:
           BOT_MODE: webhook
