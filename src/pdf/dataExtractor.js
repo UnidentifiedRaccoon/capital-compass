@@ -40,19 +40,42 @@ export function extractDataForVisualization(botResponse) {
  * Извлекает входные данные пользователя
  */
 function extractInputData(lines) {
-  const inputData = {};
+  const inputData = {
+    // Дефолтные значения
+    gender: 'не указан',
+    startCapital: 0,
+    taxRate: 13,
+    reinvestTaxDeduction: true,
+  };
 
   for (const line of lines) {
     if (line.includes('Возраст:')) {
       inputData.age = extractNumber(line);
     } else if (line.includes('Пол:')) {
-      inputData.gender = line.split('Пол:')[1]?.trim();
+      inputData.gender = line.split('Пол:')[1]?.trim() || 'не указан';
     } else if (line.includes('Доход:')) {
       inputData.income = extractAmount(line);
     } else if (line.includes('Стартовый капитал:')) {
       inputData.startCapital = extractAmount(line);
     } else if (line.includes('Ставка НДФЛ:')) {
       inputData.taxRate = extractNumber(line);
+    } else if (line.includes('Регулярный взнос:')) {
+      inputData.monthlyContribution = extractAmount(line);
+    } else if (line.includes('Цель:')) {
+      // Извлекаем цель - либо ежемесячную выплату, либо капитал
+      if (line.includes('₽/мес')) {
+        inputData.monthlyGoal = extractAmount(line);
+      } else if (line.includes('₽')) {
+        inputData.capitalGoal = extractAmount(line);
+      }
+    } else if (line.includes('Начало выплат:')) {
+      inputData.payoutStart = line.split('Начало выплат:')[1]?.trim() || 'по общему правилу';
+    } else if (
+      line.includes('Реинвестировать') ||
+      line.includes('реинвест') ||
+      line.includes('Реинвест')
+    ) {
+      inputData.reinvestTaxDeduction = !line.includes('нет') && !line.includes('Нет');
     }
   }
 
@@ -242,15 +265,50 @@ function extractAmount(text) {
  * Создаёт таблицу входных данных
  */
 export function createInputDataTable(inputData) {
+  const rows = [
+    ['Возраст', `${inputData.age} лет`],
+    ['Доход', `${inputData.income.toLocaleString('ru-RU')} ₽/мес`],
+  ];
+
+  // Добавляем обязательные поля
+  if (inputData.monthlyContribution) {
+    rows.push([
+      'Регулярный взнос',
+      `${inputData.monthlyContribution.toLocaleString('ru-RU')} ₽/мес`,
+    ]);
+  }
+
+  if (inputData.monthlyGoal) {
+    rows.push(['Цель (выплата)', `${inputData.monthlyGoal.toLocaleString('ru-RU')} ₽/мес`]);
+  } else if (inputData.capitalGoal) {
+    rows.push(['Цель (капитал)', `${inputData.capitalGoal.toLocaleString('ru-RU')} ₽`]);
+  }
+
+  if (inputData.payoutStart && inputData.payoutStart !== 'по общему правилу') {
+    rows.push(['Начало выплат', inputData.payoutStart]);
+  }
+
+  // Добавляем опциональные поля только если они указаны
+  if (inputData.gender && inputData.gender !== 'не указан') {
+    rows.push(['Пол', inputData.gender]);
+  }
+
+  if (inputData.startCapital && inputData.startCapital > 0) {
+    rows.push(['Стартовый капитал', `${inputData.startCapital.toLocaleString('ru-RU')} ₽`]);
+  }
+
+  if (inputData.taxRate !== 13) {
+    rows.push(['Ставка НДФЛ', `${inputData.taxRate}%`]);
+  }
+
+  // Показываем реинвестирование только если оно отличается от дефолтного значения
+  if (inputData.reinvestTaxDeduction !== true) {
+    rows.push(['Реинвестирование вычета', inputData.reinvestTaxDeduction ? 'Да' : 'Нет']);
+  }
+
   return {
     headers: ['Параметр', 'Значение'],
-    rows: [
-      ['Возраст', `${inputData.age} лет`],
-      ['Пол', inputData.gender || 'Не указан'],
-      ['Доход', `${inputData.income.toLocaleString('ru-RU')} ₽/мес`],
-      ['Стартовый капитал', `${inputData.startCapital.toLocaleString('ru-RU')} ₽`],
-      ['Ставка НДФЛ', `${inputData.taxRate}%`],
-    ],
+    rows,
   };
 }
 

@@ -81,7 +81,7 @@ export function parseMarkdownToHtml(markdownText) {
 
       // Закрываем предыдущую секцию
       if (currentSection) {
-        html += '</div>';
+        html += '</div></div>';
       }
 
       // Начинаем новую секцию
@@ -113,7 +113,7 @@ export function parseMarkdownToHtml(markdownText) {
 
       // Закрываем предыдущую секцию
       if (currentSection) {
-        html += '</div>';
+        html += '</div></div>';
       }
 
       // Начинаем новую секцию
@@ -127,8 +127,8 @@ export function parseMarkdownToHtml(markdownText) {
       continue;
     }
 
-    // Проверяем на элемент списка (начинается с • или —)
-    const listItemMatch = line.match(/^[•—]\s*(.*)$/);
+    // Проверяем на элемент списка (начинается с •, — или -)
+    const listItemMatch = line.match(/^[•—-]\s*(.*)$/);
     if (listItemMatch) {
       const content = listItemMatch[1];
 
