@@ -62,8 +62,11 @@ jobs:
 
       - name: Run basic smoke tests
         env:
+          CI: true
           YC_API_KEY: ${{ secrets.YC_API_KEY }}
           YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+          YC_GPT_MODEL: ${{ secrets.YC_GPT_MODEL || 'yandexgpt/latest' }}
+          YC_GPT_ENDPOINT: ${{ secrets.YC_GPT_ENDPOINT || 'https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions' }}
         run: npm run smoke:basic
 
       # ========================================
@@ -78,6 +81,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           YC_API_KEY: ${{ secrets.YC_API_KEY }}
           YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+          YC_GPT_MODEL: ${{ secrets.YC_GPT_MODEL || 'yandexgpt/latest' }}
+          YC_GPT_ENDPOINT: ${{ secrets.YC_GPT_ENDPOINT || 'https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions' }}
         run: |
           node src/index.js & echo $! > server.pid
 
