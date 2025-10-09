@@ -84,7 +84,8 @@ jobs:
           YC_GPT_MODEL: ${{ secrets.YC_GPT_MODEL || 'yandexgpt/latest' }}
           YC_GPT_ENDPOINT: ${{ secrets.YC_GPT_ENDPOINT || 'https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions' }}
         run: |
-          node src/index.js & echo $! > server.pid
+          node src/index.js > server.log 2>&1 & echo $! > server.pid
+          sleep 2
 
       - name: Wait for health
         run: |
@@ -93,6 +94,8 @@ jobs:
             sleep 1
           done
           echo "Server did not become healthy in time" >&2
+          echo "Server logs:" >&2
+          cat server.log >&2
           exit 1
 
       - name: Integration smoke tests
@@ -105,7 +108,13 @@ jobs:
       - name: Stop server
         if: always()
         run: |
-          if [ -f server.pid ]; then kill "$(cat server.pid)"; fi
+          if [ -f server.pid ]; then
+            PID=$(cat server.pid)
+            if kill -0 "$PID" 2>/dev/null; then
+              kill "$PID" || true
+            fi
+            rm -f server.pid
+          fi
 
   # ========================================
   # ЭТАП 2: СБОРКА И ДЕПЛОЙ (только для main)
