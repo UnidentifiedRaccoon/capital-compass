@@ -42,7 +42,32 @@ export async function generatePdfReport(botResponse, options = {}) {
     logger.info('Проверяем доступность Playwright...');
     const isPlaywrightAvailable = await checkPlaywrightAvailability();
     if (!isPlaywrightAvailable) {
-      throw new Error('Playwright недоступен. Убедитесь, что браузеры установлены.');
+      // В продакшене пытаемся переустановить браузеры
+      if (process.env.NODE_ENV === 'production') {
+        logger.warn('Playwright недоступен в продакшене, пытаемся переустановить браузеры...');
+        try {
+          const { execSync } = await import('child_process');
+          execSync('npx playwright install chromium --with-deps', {
+            stdio: 'pipe',
+            timeout: 60000, // 60 секунд таймаут
+          });
+          logger.info('Браузеры переустановлены, повторная проверка...');
+
+          const isAvailableAfterReinstall = await checkPlaywrightAvailability();
+          if (!isAvailableAfterReinstall) {
+            throw new Error(
+              'Playwright недоступен даже после переустановки. Обратитесь к администратору.'
+            );
+          }
+        } catch (reinstallError) {
+          logger.error('Ошибка при переустановке браузеров', { error: reinstallError.message });
+          throw new Error(
+            'Playwright недоступен и не удалось переустановить браузеры. Обратитесь к администратору.'
+          );
+        }
+      } else {
+        throw new Error('Playwright недоступен. Убедитесь, что браузеры установлены.');
+      }
     }
     logger.info('Playwright доступен');
 

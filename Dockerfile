@@ -27,7 +27,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем Playwright и браузеры для PDF-генерации
-RUN npx playwright install chromium
+RUN npx playwright install chromium --with-deps
+
+# Проверяем установку браузеров
+RUN npx playwright --version && \
+    ls -la /root/.cache/ms-playwright/ && \
+    echo "Playwright browsers installed successfully"
 
 # Port и Health для платформы
 EXPOSE 8080

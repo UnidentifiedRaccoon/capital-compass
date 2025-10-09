@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import { config } from '../config/env.js';
 import { logger } from '../logger.js';
 import { metricsSnapshot } from '../metrics.js';
+import { runPdfDiagnostics } from '../pdf/pdfDiagnostics.js';
 
 /**
  * Создаёт Fastify-сервер с /health и /tg/<WEBHOOK_SECRET>
@@ -16,6 +17,27 @@ export function createServer(onUpdate) {
 
   // metrics (простые in-memory метрики)
   app.get('/metrics', async () => await metricsSnapshot());
+
+  // PDF diagnostics endpoint
+  app.get('/pdf-diagnostics', async (request, reply) => {
+    try {
+      logger.info('Running PDF diagnostics via API');
+      const diagnostics = await runPdfDiagnostics();
+      return {
+        ok: true,
+        timestamp: new Date().toISOString(),
+        diagnostics,
+      };
+    } catch (error) {
+      logger.error({ error: error.message, stack: error.stack }, 'PDF diagnostics failed');
+      reply.code(500);
+      return {
+        ok: false,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  });
 
   // webhook
   const path = `/tg/${config.WEBHOOK_SECRET}`;
