@@ -138,15 +138,15 @@ export async function generatePdfReport(botResponse, options = {}) {
     logger.info('Генерируем PDF...');
 
     try {
-      // Упрощенные настройки PDF для serverless окружения
+      // Минимальные настройки PDF для serverless окружения
       const pdfOptions = {
         format: 'A4',
-        printBackground: true,
+        printBackground: false, // Отключаем фоновые изображения для упрощения
         margin: {
-          top: '20mm',
-          right: '15mm',
-          bottom: '20mm',
-          left: '15mm',
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm',
         },
       };
 
@@ -168,10 +168,40 @@ export async function generatePdfReport(botResponse, options = {}) {
       logger.info('Настройки PDF', {
         hasHeaderFooter: !!pdfOptions.displayHeaderFooter,
         isProduction: process.env.NODE_ENV === 'production',
+        options: pdfOptions,
       });
 
-      const pdfBuffer = await page.pdf(pdfOptions);
-      logger.info('PDF сгенерирован', { pdfSize: pdfBuffer.length });
+      // Проверяем состояние страницы перед генерацией PDF
+      const pageTitle = await page.title();
+      const pageContent = await page.content();
+      logger.info('Состояние страницы перед PDF', {
+        title: pageTitle,
+        contentLength: pageContent.length,
+        hasContent: pageContent.includes('Capital Compass AI'),
+      });
+
+      logger.info('Начинаем генерацию PDF с Playwright...');
+      let pdfBuffer;
+
+      try {
+        pdfBuffer = await page.pdf(pdfOptions);
+        logger.info('PDF сгенерирован', { pdfSize: pdfBuffer.length });
+      } catch (firstError) {
+        logger.warn('Первая попытка генерации PDF не удалась', {
+          error: firstError.message,
+          name: firstError.name,
+        });
+
+        // Пробуем с минимальными настройками
+        logger.info('Пробуем с минимальными настройками PDF...');
+        const minimalOptions = {
+          format: 'A4',
+          margin: { top: '5mm', right: '5mm', bottom: '5mm', left: '5mm' },
+        };
+
+        pdfBuffer = await page.pdf(minimalOptions);
+        logger.info('PDF сгенерирован с минимальными настройками', { pdfSize: pdfBuffer.length });
+      }
 
       if (!pdfBuffer || pdfBuffer.length === 0) {
         throw new Error('PDF буфер пуст');
