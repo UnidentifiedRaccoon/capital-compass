@@ -115,20 +115,21 @@ async function processDataConfirmation(chatId, bot) {
     // Получаем контекст чата
     const context = getChatContext(chatId);
 
-    // Формируем сообщения для LLM (системный промпт + контекст)
+    // Формируем сообщения для LLM (системный промпт + контекст + подтверждение)
     const messages = [
       { role: 'system', text: SYSTEM_PROMPT },
       ...context.map((msg) => ({ role: msg.role, text: msg.text })),
+      { role: 'user', text: 'подтверждаю данные, выполни расчёт с введенными параметрами' },
     ];
 
-    // Добавляем сообщение пользователя о подтверждении
+    const reply = await chat(messages);
+
+    // Добавляем сообщение пользователя о подтверждении в контекст
     addMessageToContext(
       chatId,
       'user',
       'подтверждаю данные, выполни расчёт с введенными параметрами'
     );
-
-    const reply = await chat(messages);
 
     // Добавляем ответ бота в контекст
     addMessageToContext(chatId, 'assistant', reply);
