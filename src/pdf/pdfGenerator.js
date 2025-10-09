@@ -148,9 +148,12 @@ export async function generatePdfReport(botResponse, options = {}) {
           bottom: '10mm',
           left: '10mm',
         },
+        // Дополнительные настройки для стабильности в serverless
+        preferCSSPageSize: false,
+        displayHeaderFooter: false, // Отключаем header/footer для упрощения
       };
 
-      // В serverless окружении не используем header/footer для упрощения
+      // В development окружении добавляем header/footer
       if (process.env.NODE_ENV !== 'production') {
         pdfOptions.displayHeaderFooter = true;
         pdfOptions.headerTemplate = `
@@ -171,6 +174,24 @@ export async function generatePdfReport(botResponse, options = {}) {
         options: pdfOptions,
       });
 
+      // Дополнительная проверка состояния страницы
+      const pageState = await page.evaluate(() => {
+        // eslint-disable-next-line no-undef
+        return {
+          // eslint-disable-next-line no-undef
+          readyState: document.readyState,
+          // eslint-disable-next-line no-undef
+          bodyChildren: document.body.children.length,
+          // eslint-disable-next-line no-undef
+          hasContent: document.body.textContent.length > 0,
+        };
+      });
+      logger.info('Состояние страницы перед PDF', {
+        readyState: pageState.readyState,
+        bodyChildren: pageState.bodyChildren,
+        hasContent: pageState.hasContent,
+      });
+
       // Проверяем состояние страницы перед генерацией PDF
       const pageTitle = await page.title();
       const pageContent = await page.content();
@@ -184,7 +205,13 @@ export async function generatePdfReport(botResponse, options = {}) {
       let pdfBuffer;
 
       try {
-        pdfBuffer = await page.pdf(pdfOptions);
+        // Добавляем таймаут для генерации PDF
+        const pdfPromise = page.pdf(pdfOptions);
+        const timeoutPromise = new Promise((_resolve, reject) => {
+          setTimeout(() => reject(new Error('PDF generation timeout')), 30000); // 30 секунд таймаут
+        });
+
+        pdfBuffer = await Promise.race([pdfPromise, timeoutPromise]);
         logger.info('PDF сгенерирован', { pdfSize: pdfBuffer.length });
       } catch (firstError) {
         logger.warn('Первая попытка генерации PDF не удалась', {
@@ -199,8 +226,21 @@ export async function generatePdfReport(botResponse, options = {}) {
           margin: { top: '5mm', right: '5mm', bottom: '5mm', left: '5mm' },
         };
 
-        pdfBuffer = await page.pdf(minimalOptions);
-        logger.info('PDF сгенерирован с минимальными настройками', { pdfSize: pdfBuffer.length });
+        try {
+          const minimalPdfPromise = page.pdf(minimalOptions);
+          const minimalTimeoutPromise = new Promise((_resolve, reject) => {
+            setTimeout(() => reject(new Error('Minimal PDF generation timeout')), 20000); // 20 секунд таймаут
+          });
+
+          pdfBuffer = await Promise.race([minimalPdfPromise, minimalTimeoutPromise]);
+          logger.info('PDF сгенерирован с минимальными настройками', { pdfSize: pdfBuffer.length });
+        } catch (minimalError) {
+          logger.error('Минимальная генерация PDF также не удалась', {
+            error: minimalError.message,
+            name: minimalError.name,
+          });
+          throw new Error(`PDF generation failed: ${minimalError.message}`);
+        }
       }
 
       if (!pdfBuffer || pdfBuffer.length === 0) {
