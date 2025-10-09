@@ -32,6 +32,8 @@ export const MESSAGES = {
     CALCULATE: '🧮 Рассчитать',
     INFO: 'ℹ️ Что такое ПДС?',
     DOWNLOAD_PDF: '📄 Скачать PDF',
+    CONFIRM_DATA: '✅ Подтвердить данные',
+    EDIT_DATA: '✏️ Изменить данные',
   },
 
   /** Данные для callback-запросов */
@@ -40,6 +42,8 @@ export const MESSAGES = {
     INFO: 'info',
     MAIN_MENU: 'main_menu',
     DOWNLOAD_PDF: 'download_pdf',
+    CONFIRM_DATA: 'confirm_data',
+    EDIT_DATA: 'edit_data',
   },
 
   // ========================================
@@ -64,6 +68,13 @@ export const MESSAGES = {
 
 Отправьте "рассчитать" для персонального расчёта!`,
 
+  /** Сообщение для подтверждения данных перед расчётом */
+  CONFIRM_DATA_MESSAGE: `📋 Подтвердите введённые данные перед расчётом:
+
+{data_summary}
+
+Проверьте правильность данных и нажмите кнопку для продолжения.`,
+
   // ========================================
   // CALLBACK ОТВЕТЫ
   // ========================================
@@ -73,6 +84,8 @@ export const MESSAGES = {
     CALCULATE: 'Начинаем расчёт! Отправьте "рассчитать" или напишите свой вопрос.',
     INFO: 'Рассказываю о ПДС!',
     DOWNLOAD_PDF: 'Генерирую PDF-отчёт...',
+    CONFIRM_DATA: 'Выполняю расчёт...',
+    EDIT_DATA: 'Внесите изменения в данные.',
     ERROR: 'Произошла ошибка. Попробуйте ещё раз.',
   },
 
@@ -179,6 +192,35 @@ export function createPdfKeyboard() {
           {
             text: MESSAGES.BUTTONS.DOWNLOAD_PDF,
             callback_data: MESSAGES.CALLBACK_DATA.DOWNLOAD_PDF,
+          },
+        ],
+        [
+          {
+            text: '🏠 Главное меню',
+            callback_data: MESSAGES.CALLBACK_DATA.MAIN_MENU,
+          },
+        ],
+      ],
+    },
+  };
+}
+
+/**
+ * Создает клавиатуру для подтверждения данных
+ * @returns {Object} Объект клавиатуры для Telegram
+ */
+export function createConfirmDataKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: MESSAGES.BUTTONS.CONFIRM_DATA,
+            callback_data: MESSAGES.CALLBACK_DATA.CONFIRM_DATA,
+          },
+          {
+            text: MESSAGES.BUTTONS.EDIT_DATA,
+            callback_data: MESSAGES.CALLBACK_DATA.EDIT_DATA,
           },
         ],
         [

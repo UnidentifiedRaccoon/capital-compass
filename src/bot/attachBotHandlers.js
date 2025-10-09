@@ -6,12 +6,33 @@ import {
   createMainKeyboard,
   createPdfKeyboard,
   createBackToMainKeyboard,
+  createConfirmDataKeyboard,
   getCommandType,
 } from './messages.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
 import { getChatContext, addMessageToContext, clearChatContext } from '../storage/chatContext.js';
 import { generatePdfReport } from '../pdf/pdfGenerator.js';
+
+/**
+ * Проверяет, является ли ответ бота запросом на подтверждение данных
+ * @param {string} response - Ответ бота
+ * @returns {boolean} true если это запрос на подтверждение
+ */
+function isDataConfirmationRequest(response) {
+  // Проверяем наличие индикаторов запроса на подтверждение данных
+  const confirmationIndicators = [
+    '📋 Подтвердите введённые данные',
+    'Проверьте правильность данных',
+    'Возраст:',
+    'Доход:',
+    'Цель:',
+    'Взнос:',
+    'Начать выплаты:',
+  ];
+
+  return confirmationIndicators.some((indicator) => response.includes(indicator));
+}
 
 /**
  * Проверяет, является ли ответ бота расчётом пенсионных накоплений
@@ -79,6 +100,62 @@ async function startCalculationDialog(chatId, bot) {
     markLlm(false);
     markUpdateErr();
     logger.error({ chatId, err: e }, 'calculation:error');
+    await bot.sendMessage(chatId, MESSAGES.LLM_ERROR);
+  }
+}
+
+/**
+ * Обрабатывает подтверждение данных и выполняет расчёт
+ */
+async function processDataConfirmation(chatId, bot) {
+  try {
+    await bot.sendChatAction(chatId, 'typing');
+
+    // Получаем контекст чата
+    const context = getChatContext(chatId);
+
+    // Формируем сообщения для LLM (системный промпт + контекст)
+    const messages = [
+      { role: 'system', text: SYSTEM_PROMPT },
+      ...context.map((msg) => ({ role: msg.role, text: msg.text })),
+    ];
+
+    // Добавляем сообщение пользователя о подтверждении
+    addMessageToContext(chatId, 'user', 'подтверждаю данные, выполни расчёт');
+
+    const reply = await chat(messages);
+
+    // Добавляем ответ бота в контекст
+    addMessageToContext(chatId, 'assistant', reply);
+
+    markLlm(true);
+
+    // Проверяем, является ли ответ расчётом
+    const isCalculation = isCalculationResponse(reply);
+    logger.info({ chatId, isCalculation }, 'confirmation:response:type');
+
+    // Отправляем ответ с кнопкой PDF только для расчётов
+    if (isCalculation) {
+      const keyboard = createPdfKeyboard();
+      await bot.sendMessage(chatId, reply, {
+        disable_web_page_preview: true,
+        ...keyboard,
+      });
+    } else {
+      // Для обычных ответов показываем только кнопку "Главное меню"
+      const keyboard = createBackToMainKeyboard();
+      await bot.sendMessage(chatId, reply, {
+        disable_web_page_preview: true,
+        ...keyboard,
+      });
+    }
+
+    markUpdateOk();
+    logger.info({ chatId }, 'confirmation:processed');
+  } catch (e) {
+    markLlm(false);
+    markUpdateErr();
+    logger.error({ chatId, err: e }, 'confirmation:error');
     await bot.sendMessage(chatId, MESSAGES.LLM_ERROR);
   }
 }
@@ -224,12 +301,21 @@ export function attachBotHandlers(bot) {
 
       markLlm(true);
 
-      // Проверяем, является ли ответ расчётом
+      // Проверяем тип ответа
+      const isDataConfirmation = isDataConfirmationRequest(reply);
       const isCalculation = isCalculationResponse(reply);
-      logger.info({ chatId, isCalculation }, 'msg:response:type');
+      logger.info({ chatId, isDataConfirmation, isCalculation }, 'msg:response:type');
 
-      // Отправляем ответ с кнопкой PDF только для расчётов
-      if (isCalculation) {
+      // Отправляем ответ с соответствующей клавиатурой
+      if (isDataConfirmation) {
+        // Для запросов на подтверждение данных показываем кнопки подтверждения
+        const keyboard = createConfirmDataKeyboard();
+        await bot.sendMessage(chatId, reply, {
+          disable_web_page_preview: true,
+          ...keyboard,
+        });
+      } else if (isCalculation) {
+        // Для расчётов показываем кнопку PDF
         const keyboard = createPdfKeyboard();
         await bot.sendMessage(chatId, reply, {
           disable_web_page_preview: true,
@@ -268,6 +354,22 @@ export function attachBotHandlers(bot) {
       if (data === MESSAGES.CALLBACK_DATA.DOWNLOAD_PDF) {
         await bot.answerCallbackQuery(callbackQuery.id, { text: 'Генерирую PDF...' });
         await generateAndSendPdf(chatId, bot);
+        return;
+      }
+
+      // Обработка подтверждения данных
+      if (data === MESSAGES.CALLBACK_DATA.CONFIRM_DATA) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Выполняю расчёт...' });
+        await processDataConfirmation(chatId, bot);
+        return;
+      }
+
+      // Обработка редактирования данных
+      if (data === MESSAGES.CALLBACK_DATA.EDIT_DATA) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Внесите изменения в данные.' });
+        // Очищаем контекст и начинаем заново
+        clearChatContext(chatId);
+        await startCalculationDialog(chatId, bot);
         return;
       }
 
