@@ -130,7 +130,7 @@ export function createSimpleReportHtml(botResponse, options = {}) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Отчёт по пенсионным накоплениям - Capital Compass AI</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        /* Используем системные шрифты вместо Google Fonts для serverless */
         
         * {
             margin: 0;

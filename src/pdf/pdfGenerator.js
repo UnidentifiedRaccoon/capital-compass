@@ -99,17 +99,40 @@ export async function generatePdfReport(botResponse, options = {}) {
     const page = await context.newPage();
     logger.info('Новая страница создана');
 
+    // Блокируем внешние ресурсы в serverless окружении
+    if (process.env.NODE_ENV === 'production') {
+      await page.route('**/*', (route) => {
+        const url = route.request().url();
+        // Блокируем внешние ресурсы (шрифты, изображения, скрипты)
+        if (
+          url.includes('fonts.googleapis.com') ||
+          url.includes('fonts.gstatic.com') ||
+          url.includes('googleapis.com') ||
+          url.includes('gstatic.com')
+        ) {
+          route.abort();
+        } else {
+          route.continue();
+        }
+      });
+      logger.info('Внешние ресурсы заблокированы для serverless');
+    }
+
     // Устанавливаем содержимое страницы
     logger.info('Устанавливаем содержимое страницы...');
     await page.setContent(htmlContent, {
-      waitUntil: 'networkidle',
-      timeout: 30000, // 30 секунд таймаут
+      waitUntil: 'domcontentloaded', // Изменено с networkidle на domcontentloaded
+      timeout: 15000, // Уменьшено до 15 секунд
     });
     logger.info('Содержимое страницы установлено');
 
-    // Ждём загрузки шрифтов
-    logger.info('Ждём загрузки шрифтов...');
-    await page.waitForTimeout(1000);
+    // В serverless окружении не ждём загрузки внешних ресурсов
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Ждём загрузки шрифтов...');
+      await page.waitForTimeout(1000);
+    } else {
+      logger.info('Пропускаем ожидание шрифтов в serverless');
+    }
 
     // Генерируем PDF
     logger.info('Генерируем PDF...');
