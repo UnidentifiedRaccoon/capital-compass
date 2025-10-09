@@ -136,35 +136,61 @@ export async function generatePdfReport(botResponse, options = {}) {
 
     // Генерируем PDF
     logger.info('Генерируем PDF...');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '15mm',
-        bottom: '20mm',
-        left: '15mm',
-      },
-      displayHeaderFooter: true,
-      headerTemplate: `
-        <div style="font-size: 10px; color: #6b7280; text-align: center; width: 100%; padding: 5px;">
-          Capital Compass AI - Отчёт по пенсионным накоплениям
-        </div>
-      `,
-      footerTemplate: `
-        <div style="font-size: 10px; color: #6b7280; text-align: center; width: 100%; padding: 5px;">
-          Страница <span class="pageNumber"></span> из <span class="totalPages"></span>
-        </div>
-      `,
-    });
-    logger.info('PDF сгенерирован', { pdfSize: pdfBuffer.length });
 
-    logger.info('PDF-отчёт успешно сгенерирован', {
-      filename,
-      size: pdfBuffer.length,
-    });
+    try {
+      // Упрощенные настройки PDF для serverless окружения
+      const pdfOptions = {
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20mm',
+          right: '15mm',
+          bottom: '20mm',
+          left: '15mm',
+        },
+      };
 
-    return pdfBuffer;
+      // В serverless окружении не используем header/footer для упрощения
+      if (process.env.NODE_ENV !== 'production') {
+        pdfOptions.displayHeaderFooter = true;
+        pdfOptions.headerTemplate = `
+          <div style="font-size: 10px; color: #6b7280; text-align: center; width: 100%; padding: 5px;">
+            Capital Compass AI - Отчёт по пенсионным накоплениям
+          </div>
+        `;
+        pdfOptions.footerTemplate = `
+          <div style="font-size: 10px; color: #6b7280; text-align: center; width: 100%; padding: 5px;">
+            Страница <span class="pageNumber"></span> из <span class="totalPages"></span>
+          </div>
+        `;
+      }
+
+      logger.info('Настройки PDF', {
+        hasHeaderFooter: !!pdfOptions.displayHeaderFooter,
+        isProduction: process.env.NODE_ENV === 'production',
+      });
+
+      const pdfBuffer = await page.pdf(pdfOptions);
+      logger.info('PDF сгенерирован', { pdfSize: pdfBuffer.length });
+
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error('PDF буфер пуст');
+      }
+
+      logger.info('PDF-отчёт успешно сгенерирован', {
+        filename,
+        size: pdfBuffer.length,
+      });
+
+      return pdfBuffer;
+    } catch (pdfError) {
+      logger.error('Ошибка при генерации PDF', {
+        error: pdfError.message,
+        name: pdfError.name,
+        stack: pdfError.stack,
+      });
+      throw new Error(`Ошибка генерации PDF: ${pdfError.message}`);
+    }
   } catch (error) {
     // Детальное логирование ошибки
     logger.error('Ошибка при генерации PDF-отчёта', {
