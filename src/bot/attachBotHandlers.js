@@ -66,8 +66,8 @@ async function startCalculationDialog(chatId, bot) {
 
     markLlm(true);
 
-    // Отправляем стандартное сообщение с кнопкой PDF
-    const keyboard = createPdfKeyboard();
+    // Отправляем стандартное сообщение с кнопкой возврата в главное меню
+    const keyboard = createBackToMainKeyboard();
     await bot.sendMessage(chatId, standardMessage, {
       disable_web_page_preview: true,
       ...keyboard,
