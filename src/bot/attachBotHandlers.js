@@ -171,6 +171,7 @@ async function processDataConfirmation(chatId, bot) {
  */
 async function generateAndSendPdf(chatId, bot) {
   try {
+    logger.info({ chatId }, 'pdf:start');
     await bot.sendChatAction(chatId, 'typing');
 
     // Получаем последний ответ бота из контекста
@@ -186,6 +187,12 @@ async function generateAndSendPdf(chatId, bot) {
     if (!lastBotMessage) {
       logger.warn({ chatId, contextLength: context.length }, 'pdf:noData');
       await bot.sendMessage(chatId, 'Нет данных для генерации отчёта. Сначала выполните расчёт.');
+      return;
+    }
+
+    if (!lastBotMessage.text || lastBotMessage.text.trim().length === 0) {
+      logger.warn({ chatId }, 'pdf:emptyMessage');
+      await bot.sendMessage(chatId, 'Ответ бота пуст. Нет данных для генерации отчёта.');
       return;
     }
 
@@ -208,6 +215,13 @@ async function generateAndSendPdf(chatId, bot) {
 
     logger.info({ chatId, pdfSize: pdfBuffer.length }, 'pdf:generated');
 
+    // Проверяем размер PDF
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      logger.error({ chatId }, 'pdf:emptyBuffer');
+      await bot.sendMessage(chatId, 'Ошибка: сгенерированный PDF пуст. Попробуйте позже.');
+      return;
+    }
+
     // Отправляем PDF как документ
     await bot.sendDocument(chatId, pdfBuffer, {
       filename: `pension-report-${Date.now()}.pdf`,
@@ -216,8 +230,41 @@ async function generateAndSendPdf(chatId, bot) {
 
     logger.info({ chatId }, 'pdf:sent');
   } catch (e) {
-    logger.error({ chatId, err: e.message, stack: e.stack }, 'pdf:error');
-    await bot.sendMessage(chatId, 'Ошибка при генерации PDF-отчёта. Попробуйте позже.');
+    // Детальное логирование ошибки
+    logger.error(
+      {
+        chatId,
+        err: e.message,
+        stack: e.stack,
+        errorName: e.name,
+        errorCode: e.code,
+      },
+      'pdf:error'
+    );
+
+    // Определяем тип ошибки и отправляем соответствующее сообщение
+    let errorMessage = 'Ошибка при генерации PDF-отчёта. Попробуйте позже.';
+
+    if (e.message.includes('браузер для генерации PDF недоступен')) {
+      errorMessage =
+        '❌ Ошибка: браузер для генерации PDF недоступен. Обратитесь к администратору.';
+    } else if (e.message.includes('превышено время ожидания')) {
+      errorMessage = '⏱️ Ошибка: превышено время ожидания при генерации PDF. Попробуйте позже.';
+    } else if (e.message.includes('некорректные данные')) {
+      errorMessage = '📝 Ошибка: некорректные данные для генерации PDF.';
+    } else if (e.message.includes('нет данных')) {
+      errorMessage = '📄 Ошибка: нет данных для генерации PDF.';
+    } else if (e.message.includes('не найдены необходимые файлы')) {
+      errorMessage = '🔧 Ошибка: не найдены необходимые файлы для генерации PDF.';
+    } else if (e.message.includes('недостаточно прав')) {
+      errorMessage = '🔐 Ошибка: недостаточно прав для генерации PDF.';
+    } else if (e.message.includes('ENOENT') || e.message.includes('ENOTFOUND')) {
+      errorMessage = '🔧 Ошибка: не найдены необходимые файлы. Обратитесь к администратору.';
+    } else if (e.message.includes('EACCES') || e.message.includes('EPERM')) {
+      errorMessage = '🔐 Ошибка: недостаточно прав доступа. Обратитесь к администратору.';
+    }
+
+    await bot.sendMessage(chatId, errorMessage);
   }
 }
 
