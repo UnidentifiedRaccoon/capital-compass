@@ -122,7 +122,11 @@ async function processDataConfirmation(chatId, bot) {
     ];
 
     // Добавляем сообщение пользователя о подтверждении
-    addMessageToContext(chatId, 'user', 'подтверждаю данные, выполни расчёт');
+    addMessageToContext(
+      chatId,
+      'user',
+      'подтверждаю данные, выполни расчёт с введенными параметрами'
+    );
 
     const reply = await chat(messages);
 
