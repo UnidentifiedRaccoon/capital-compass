@@ -1,10 +1,10 @@
 /**
- * Сервис генерации PDF-отчётов с помощью Playwright
- * Конвертирует HTML-отчёты в PDF с красивым форматированием
+ * Простой сервис генерации PDF-отчётов с помощью Playwright
+ * Конвертирует HTML-отчёты в PDF с минималистичным форматированием
  */
 
 import { chromium } from 'playwright';
-import { createReportHtml } from './markdownParser.js';
+import { createSimpleReportHtml } from './simpleParser.js';
 import { logger } from '../logger.js';
 
 /**
@@ -30,7 +30,7 @@ export async function generatePdfReport(botResponse, options = {}) {
     }
 
     // Создаём HTML-отчёт
-    const htmlContent = createReportHtml(botResponse, { reportDate });
+    const htmlContent = createSimpleReportHtml(botResponse, { reportDate });
 
     // Запускаем браузер
     browser = await chromium.launch({

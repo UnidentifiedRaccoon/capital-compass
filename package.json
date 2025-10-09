@@ -10,6 +10,7 @@
     "smoke:http": "node scripts/smoke.mjs",
     "smoke:llm": "node scripts/echo-llm.mjs \"Проверка связи\"",
     "smoke:webhook": "node scripts/smoke-webhook.mjs",
+    "test:pdf": "node scripts/test-simple-pdf.mjs",
     "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
     "format": "prettier --write .",
