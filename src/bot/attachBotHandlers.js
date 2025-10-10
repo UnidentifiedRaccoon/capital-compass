@@ -11,7 +11,13 @@ import {
 } from './messages.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
-import { getChatContext, addMessageToContext, clearChatContext } from '../storage/chatContext.js';
+import {
+  getChatContext,
+  addMessageToContext,
+  clearChatContext,
+  setChatState,
+  getChatState,
+} from '../storage/chatContext.js';
 import { generatePdfReport } from '../pdf/pdfGenerator.js';
 
 /**
@@ -139,6 +145,9 @@ async function processDataConfirmation(chatId, bot) {
     // Проверяем, является ли ответ расчётом
     const isCalculation = isCalculationResponse(reply);
     logger.info({ chatId, isCalculation }, 'confirmation:response:type');
+
+    // Сбрасываем состояние чата после обработки подтверждения
+    setChatState(chatId, 'idle');
 
     // Отправляем ответ с кнопкой PDF только для расчётов
     if (isCalculation) {
@@ -277,12 +286,14 @@ async function handleCommand(chatId, command, bot) {
   switch (command) {
     case 'start': {
       clearChatContext(chatId);
+      setChatState(chatId, 'idle');
       const keyboard = createMainKeyboard();
       await bot.sendMessage(chatId, MESSAGES.WELCOME, keyboard);
       break;
     }
     case 'clear':
       clearChatContext(chatId);
+      setChatState(chatId, 'idle');
       await bot.sendMessage(chatId, MESSAGES.CLEAR_CONTEXT);
       break;
     case 'calculate':
@@ -326,6 +337,16 @@ export function attachBotHandlers(bot) {
     const text = (msg.text ?? '').trim();
     if (!text || text.startsWith('/')) return;
 
+    // Проверяем состояние чата - если ожидается подтверждение данных, игнорируем текстовые сообщения
+    const chatState = getChatState(chatId);
+    if (chatState === 'waiting_confirmation') {
+      await bot.sendMessage(
+        chatId,
+        '⏳ Пожалуйста, используйте кнопки для подтверждения или изменения данных.'
+      );
+      return;
+    }
+
     markUpdateStart();
     logger.info({ chatId, text }, 'msg:in');
 
@@ -364,6 +385,7 @@ export function attachBotHandlers(bot) {
       // Отправляем ответ с соответствующей клавиатурой
       if (isDataConfirmation) {
         // Для запросов на подтверждение данных показываем кнопки подтверждения
+        setChatState(chatId, 'waiting_confirmation');
         const keyboard = createConfirmDataKeyboard();
         await bot.sendMessage(chatId, reply, {
           disable_web_page_preview: true,
@@ -422,7 +444,8 @@ export function attachBotHandlers(bot) {
       // Обработка редактирования данных
       if (data === MESSAGES.CALLBACK_DATA.EDIT_DATA) {
         await bot.answerCallbackQuery(callbackQuery.id, { text: 'Внесите изменения в данные.' });
-        // Очищаем контекст и начинаем заново
+        // Сбрасываем состояние и очищаем контекст, начинаем заново
+        setChatState(chatId, 'idle');
         clearChatContext(chatId);
         await startCalculationDialog(chatId, bot);
         return;

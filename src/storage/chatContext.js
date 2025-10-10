@@ -3,7 +3,7 @@
  * Хранит последние 10 сообщений для каждого чата
  */
 
-// Map: chatId -> { messages: [...], lastUpdate: timestamp }
+// Map: chatId -> { messages: [...], lastUpdate: timestamp, state: 'idle' | 'waiting_confirmation' }
 const chatContexts = new Map();
 
 // Максимальное количество сообщений в контексте (5 от бота + 5 от пользователя)
@@ -30,6 +30,7 @@ export function addMessageToContext(chatId, role, text) {
     chatContexts.set(chatId, {
       messages: [],
       lastUpdate: Date.now(),
+      state: 'idle',
     });
   }
 
@@ -57,6 +58,35 @@ export function addMessageToContext(chatId, role, text) {
  */
 export function clearChatContext(chatId) {
   chatContexts.delete(chatId);
+}
+
+/**
+ * Установить состояние чата
+ * @param {number} chatId - ID чата
+ * @param {string} state - Состояние чата ('idle' | 'waiting_confirmation')
+ */
+export function setChatState(chatId, state) {
+  if (!chatContexts.has(chatId)) {
+    chatContexts.set(chatId, {
+      messages: [],
+      lastUpdate: Date.now(),
+      state: 'idle',
+    });
+  }
+
+  const context = chatContexts.get(chatId);
+  context.state = state;
+  context.lastUpdate = Date.now();
+}
+
+/**
+ * Получить состояние чата
+ * @param {number} chatId - ID чата
+ * @returns {string} Состояние чата
+ */
+export function getChatState(chatId) {
+  const context = chatContexts.get(chatId);
+  return context?.state || 'idle';
 }
 
 /**
